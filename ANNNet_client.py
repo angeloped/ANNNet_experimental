@@ -36,6 +36,8 @@ headers = {"User-Agent":"ANNNet/1.0"}
 
 ANNNet_METAWEB_Nonce = [] # For ANNNet Guard's nonce verification
 
+ANNNet_METAWEB_dbms_callbacks = {} # Assigned function callback from submodule ANNNet_METAWEB.py (Guard); this is important for connecting the reverse proxy handler and ANNNet Guard.
+
 
 def get_session(url="", headers=headers, proxies=proxies, data={}, dump=False):
 	response = requests.get(url, headers=headers, data=data, proxies=proxies, allow_redirects=True, stream=True) #, timeout=3)
@@ -106,7 +108,7 @@ class MyProxy(SimpleHTTPServer.SimpleHTTPRequestHandler):
 				Key_ANNN = form.getvalue("KEY_ANNNet")       # "<batch_id> <n> <data_key_chunk>"
 				MData_ANNN = form.getvalue("MDAT_ANNNet")    # "<batch_id> <start> <end> <fixed> <len> <len>"
 				Fragment_ANNN = form.getvalue("FRAG_ANNNet") # "<fragment data>"
-				Dest_ANNN = form.getvalue("Dest_ANNNet")
+				Dest_ANNN = form.getvalue("Dest_ANNNet")     # "<IP addr>"
 				
 				if bool(Key_ANNN) and bool(MData_ANNN) and bool(Fragment_ANNN) and bool(Dest_ANNN): # ANNNet forwarder
 					data = {"KEY_ANNNet":Key_ANNN, "MDAT_ANNNet":MData_ANNN, "FRAG_ANNNet":Fragment_ANNN}
@@ -241,6 +243,36 @@ class MyProxy(SimpleHTTPServer.SimpleHTTPRequestHandler):
 						return
 				
 				self.wfile.write(0x00)
+			elif XMD == "guard":
+				# if this client reverse proxy server isn't acting as People's Guard; no callbacks were registered
+				# to 'ANNNet_METAWEB_dbms_callbacks' dict; this block is exclusive only for running as ANNNet_METAWEB.py
+				# simply known as Guard who manages database of relays of the entire ANNNetwork.
+				if bool(ANNNet_METAWEB_dbms_callbacks):
+					# func command
+					func_ANNN = form.getvalue("func_ANNNet") # [get_hsl, dump_relay, register]
+					
+					# parameters
+					ANNNURL_ANNN = form.getvalue("ANNNURL_ANNNet")
+					Regstr_ANNN = form.getvalue("Regstr_ANNNet")
+					HSURL_ANNN = form.getvalue("HSURL_ANNNet")
+					Key_ANNN = form.getvalue("Key_ANNNet")
+					RID_ANNN = form.getvalue("RID_ANNNet")
+					
+					if bool(func_ANNN): # if function is triggered
+						if func_ANNN == "get_hsl" and bool(ANNNURL_ANNN):
+							# get hidden service link (param: annnurl)
+							self.wfile.write( ANNNet_METAWEB_dbms_callbacks["get_hidden_service"](annnurl=ANNNURL_ANNN) )
+						elif func_ANNN == "dump_relay":
+							# request random relay (no param)
+							self.wfile.write( ANNNet_METAWEB_dbms_callbacks["dump_relays_services"]() )
+						elif func_ANNN == "register":
+							# register/update hidden service
+							if bool(HSURL_ANNN) and bool(Key_ANNN):
+								self.wfile.write( ANNNet_METAWEB_dbms_callbacks["register_service"](hsurl=HSURL_ANNN, key=Key_ANNN) ) # register
+							elif bool(RID_ANNN) and bool(ANNNURL_ANNN):
+								self.wfile.write( ANNNet_METAWEB_dbms_callbacks["register_service"](rid=RID_ANNN, set_annnurl=ANNNURL_ANNN) ) # re-register
+				
+				self.wfile.write(0x00)
 			else:
 				self.wfile.write(0x00)
 		else:
@@ -248,13 +280,17 @@ class MyProxy(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
 
+def LAUNCH_ANNNet_reverse_proxy():
+	httpd = SocketServer.ForkingTCPServer(('', PORT), MyProxy)
+	print("Now serving at port {0} ...".format(str(PORT)))
+	httpd.serve_forever()
+
 
 if __name__ == "__main__":
 	while 1:
 		try:
-			httpd = SocketServer.ForkingTCPServer(('', PORT), MyProxy)
-			print("Now serving at port {0} ...".format(str(PORT)))
-			httpd.serve_forever()
+			# launch reverse proxy of ANNNetwork
+			LAUNCH_ANNNet_reverse_proxy()
 		except KeyboardInterrupt:
 			break
 		except:

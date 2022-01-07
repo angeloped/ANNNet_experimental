@@ -115,12 +115,15 @@ class INTERGATEWAY_REDIR(ANNNet_Utils):
 					conn.commit()
 					return 0x01
 				except:
-					return 0x00
+					pass
 		elif bool(set_annnurl) and bool(rid):
 			# change service's .annn linker [warning: administrative use only]
 			cur = conn.cursor()
 			cur.execute("UPDATE INTERGATEWAY_REDIR SET LNK_=? WHERE RID_=?", (set_annnurl, rid))
 			conn.commit()
+			return 0x01
+		
+		return 0x00
 	
 	def refresh_relay(self): # [a thread] remove inactive relays
 		while 1:
@@ -156,8 +159,18 @@ if __name__ == "__main__":
 		intrgt_obj.thread_loop()
 		
 		
-		# Add or Do Something Here To Improve
+		# interfacing ANNNet_METAWEB to ANNNet_client.py and act as a Guard
+		# this could be done by making relay manager functions accessible to
+		# the submodule ANNNet_client.py
 		
+		# get hidden service link (param: annnurl)
+		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["get_hidden_service"] = get_hidden_service
+		# request random relay (no param)
+		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["dump_relays_services"] = dump_relays_services
+		# register/update hidden service
+		# register params: hsurl, key
+		# update params:   rid, set_annnurl
+		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["register_service"] = register_service
 		
 	except Exception as excp:
 		pass #[wip] catch
