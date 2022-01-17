@@ -287,7 +287,7 @@ def LAUNCH_ANNNet_reverse_proxy():
 
 
 if __name__ == "__main__":
-	while 1:
+	while 1: # auto set port when cannot access the existing one
 		try:
 			# launch reverse proxy of ANNNetwork
 			LAUNCH_ANNNet_reverse_proxy()

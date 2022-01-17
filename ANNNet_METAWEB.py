@@ -39,9 +39,8 @@ CREATE TABLE INTERGATEWAY_REDIR(
 """
 
 
-#[wip]
-whereami = "aaaaaaaaaa.onion"
-guards = []
+whereami = "my_host_on_tor.onion" # .onion host of ANNNet guard
+guards = [] # unused object; for future use of guard synchronisation
 
 
 
@@ -126,8 +125,8 @@ class INTERGATEWAY_REDIR(ANNNet_Utils):
 		return 0x00
 	
 	def refresh_relay(self): # [a thread] remove inactive relays
+		cur = conn.cursor()
 		while 1:
-			cur = conn.cursor()
 			relays_db = cur.execute("SELECT HSL_ FROM INTERGATEWAY_REDIR")
 			for relay in relays_db:
 				if not self.checkifup(relay[0]): # if down
@@ -142,16 +141,15 @@ class INTERGATEWAY_REDIR(ANNNet_Utils):
 
 if __name__ == "__main__":
 	try:
-		# sqlite3 database conn
-		conn = sqlite3.connect("system.db", check_same_thread=False)
-		
-		
-		# create db if db not found
+		# sqlite3 create database conn
+		# create db if db not found; else, open existing
 		if not os.path.exists("system.db"):
+			conn = sqlite3.connect("system.db", check_same_thread=False)
 			conn.executescript(intergateway_sql)
+		else:
+			conn = sqlite3.connect("system.db", check_same_thread=False)
 		
-		
-		# ANNNet's Gateway DBMS
+		# ANNNet's Meta-Internet Gateway DBMS
 		intrgt_obj = INTERGATEWAY_REDIR()
 		
 		
@@ -162,16 +160,20 @@ if __name__ == "__main__":
 		# interfacing ANNNet_METAWEB to ANNNet_client.py and act as a Guard
 		# this could be done by making relay manager functions accessible to
 		# the submodule ANNNet_client.py
-		
+		#
 		# get hidden service link (param: annnurl)
-		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["get_hidden_service"] = get_hidden_service
+		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["get_hidden_service"] = intrgt_obj.get_hidden_service
 		# request random relay (no param)
-		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["dump_relays_services"] = dump_relays_services
+		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["dump_relays_services"] = intrgt_obj.dump_relays_services
 		# register/update hidden service
 		# register params: hsurl, key
 		# update params:   rid, set_annnurl
-		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["register_service"] = register_service
+		ANNNet_client.ANNNet_METAWEB_dbms_callbacks["register_service"] = intrgt_obj.register_service
 		
+		
+		# launch reverse proxy of ANNNetwork
+		ANNNet_client.LAUNCH_ANNNet_reverse_proxy()
+	
 	except Exception as excp:
 		pass #[wip] catch
 	finally:
